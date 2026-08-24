@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Digital Wardrobe Manager</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div id="root"></div>
+
+<!-- React 18 + Babel standalone: lets this run as plain files, no build step -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.development.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+<script type="text/babel" data-presets="react">
+const { useState, useEffect } = React;
+const API_BASE = "/api/wardrobe";
+
+/* ============================================================
+   2.a Counter button — React CLASS component
+   ============================================================ */
+class ClassCounter extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { count: 0 };
+    this.increment = this.increment.bind(this);
+  }
+  increment() {
+    this.setState(prev => ({ count: prev.count + 1 }));
+  }
+  render() {
+    return (
+      <div className="stat-box">
+        <div className="label">Outfit Rotations (class component)</div>
+        <div className="value">{this.state.count}</div>
+        <button onClick={this.increment}>Log outfit change</button>
+      </div>
+    );
+  }
+}
+
+/* ============================================================
+   2.b Counter button — React FUNCTIONAL component
+   3.a Same counter, built with the useState hook
+   ============================================================ */
+function FunctionCounter() {
+  const [count, setCount] = useState(0);
+  return (
+    <div className="stat-box">
+      <div className="label">Laundry Cycles (functional + useState)</div>
+      <div className="value">{count}</div>
+      <button className="alt" onClick={() => setCount(count + 1)}>Log a wash</button>
+    </div>
+  );
+}
+
+/* ============================================================
+   2.c Handling button click events in a functional component
+   ============================================================ */
+const styleTips = [
+  "Pair denim with one bold accent color, not three.",
+  "Roll sleeves once, not twice — cleaner line.",
+  "Match your belt to your shoes, always.",
+  "Neutral base, one statement piece per outfit.",
+  "Cuff your trousers if you're wearing ankle boots.",
+];
+function StyleTipButton() {
+  const [tip, setTip] = useState(null);
+
+  function handleClick() {
+    const random = styleTips[Math.floor(Math.random() * styleTips.length)];
+    setTip(random);
+  }
+
+  return (
+    <div className="stat-box">
+      <div className="label">Styling Tip (click handler)</div>
+      <div className="value" style={{ fontSize: "14px", lineHeight: 1.4, fontFamily: "Inter, sans-serif", fontWeight: 400 }}>
+        {tip ? tip : "Tap for a tip"}
+      </div>
+      <button onClick={handleClick}>New tip</button>
+    </div>
+  );
+}
+
+/* ============================================================
+   2.e Display text using string / template literals
+   ============================================================ */
+function Greeting({ itemCount }) {
+  const hour = new Date().getHours();
+  const timeOfDay = hour < 12 ? "morning" : hour < 18 ? "afternoon" : "evening";
+  // template literal combining a dynamic time-of-day and item count
+  const message = `Good ${timeOfDay} — your closet holds ${itemCount} item${itemCount === 1 ? "" : "s"} right now.`;
+  return <p className="eyebrow" style={{ marginTop: 6 }}>{message}</p>;
+}
+
+/* ============================================================
+   3.d Form handling in React (controlled inputs)
+   ============================================================ */
+function AddItemForm({ onAdd }) {
+  const [form, setForm] = useState({ name: "", category: "Top", color: "", season: "All Season" });
+
+  function handleChange(e) {
+    const { name, value } = e.target;
+    setForm(prev => ({ ...prev, [name]: value }));
+  }
+
+  function handleSubmit(e) {
+    e.preventDefault();
+    if (!form.name.trim()) return;
+    onAdd(form);
+    setForm({ name: "", category: "Top", color: "", season: "All Season" });
+  }
+
+  return (
+    <form className="add-item" onSubmit={handleSubmit}>
+      <div>
+        <label>Item name</label>
+        <input name="name" value={form.name} onChange={handleChange} placeholder="e.g. Olive Bomber Jacket" />
+      </div>
+      <div>
+        <label>Category</label>
+        <select name="category" value={form.category} onChange={handleChange}>
+          <option>Top</option>
+          <option>Bottom</option>
+          <option>Outerwear</option>
+          <option>Shoes</option>
+          <option>Accessory</option>
+        </select>
+      </div>
+      <div>
+        <label>Color</label>
+        <input name="color" value={form.color} onChange={handleChange} placeholder="e.g. Olive Green" />
+      </div>
+      <div>
+        <label>Season</label>
+        <select name="season" value={form.season} onChange={handleChange}>
+          <option>All Season</option>
+          <option>Summer</option>
+          <option>Winter</option>
+          <option>Monsoon</option>
+        </select>
+      </div>
+      <div className="submit-row">
+        <button type="submit">Add to wardrobe</button>
+      </div>
+    </form>
+  );
+}
+
+/* ============================================================
+   3.c Two components sharing data via Props
+   ItemCard receives the item + callbacks as props from WardrobeList
+   ============================================================ */
+function ItemCard({ item, onWear, onFavorite, onDelete }) {
+  return (
+    <div className="hang-tag">
+      <div className="cat">{item.category} · {item.season}</div>
+      <h3>{item.name}</h3>
+      <div className="meta">{item.color || "—"} · worn {item.times_worn}×</div>
+      <div className="row">
+        <button className="btn-worn" onClick={() => onWear(item)}>+1 worn</button>
+        <button className={`btn-fav ${item.is_favorite ? "active" : ""}`} onClick={() => onFavorite(item)}>
+          {item.is_favorite ? "★ Fav" : "☆ Fav"}
+        </button>
+        <button className="btn-del" onClick={() => onDelete(item)}>Remove</button>
+      </div>
+    </div>
+  );
+}
+
+/* ============================================================
+   3.e Iterative rendering with map()
+   2.d Conditionally render a component (empty state vs grid)
+   ============================================================ */
+function WardrobeList({ items, onWear, onFavorite, onDelete }) {
+  if (items.length === 0) {
+    return (
+      <div className="empty-state">
+        Your wardrobe is empty. Add your first item using the form above.
+      </div>
+    );
+  }
+  return (
+    <div className="tag-grid">
+      {items.map(item => (
+        <ItemCard
+          key={item.id}
+          item={item}
+          onWear={onWear}
+          onFavorite={onFavorite}
+          onDelete={onDelete}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ============================================================
+   3.b Fetching data from an API using useEffect
+   Root App component ties everything together
+   ============================================================ */
+function App() {
+  const [items, setItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    fetchItems();
+  }, []);
+
+  async function fetchItems() {
+    try {
+      setLoading(true);
+      const res = await fetch(`${API_BASE}/items`);
+      if (!res.ok) throw new Error("Failed to load wardrobe items");
+      const data = await res.json();
+      setItems(data);
+      setError(null);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleAdd(form) {
+    const res = await fetch(`${API_BASE}/items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    });
+    if (res.ok) fetchItems();
+  }
+
+  async function handleWear(item) {
+    await fetch(`${API_BASE}/items/${item.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...item, times_worn: item.times_worn + 1 }),
+    });
+    fetchItems();
+  }
+
+  async function handleFavorite(item) {
+    await fetch(`${API_BASE}/items/${item.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...item, is_favorite: !item.is_favorite }),
+    });
+    fetchItems();
+  }
+
+  async function handleDelete(item) {
+    await fetch(`${API_BASE}/items/${item.id}`, { method: "DELETE" });
+    fetchItems();
+  }
+
+  return (
+    <div className="wrap">
+      <header className="site">
+        <div className="brand">closet<span>.log</span></div>
+        <div className="eyebrow">Digital Wardrobe Manager</div>
+      </header>
+
+      <section className="hero">
+        <h1>Every garment, <em>logged</em> —<br/>every outfit, on record.</h1>
+        <p>Add what's hanging in your closet, track how often you actually wear it, and keep favorites one tap away.</p>
+        <Greeting itemCount={items.length} />
+
+        <div className="stat-strip">
+          <ClassCounter />
+          <FunctionCounter />
+          <StyleTipButton />
+        </div>
+      </section>
+
+      <div className="section-head">
+        <span className="tag-num">02</span>
+        <h2>Add a new piece</h2>
+      </div>
+      <AddItemForm onAdd={handleAdd} />
+
+      <div className="section-head">
+        <span className="tag-num">03</span>
+        <h2>Your wardrobe {loading ? "" : `(${items.length})`}</h2>
+      </div>
+
+      {loading && <p>Loading your closet…</p>}
+      {error && <p style={{ color: "#A8493A" }}>Couldn't reach the server: {error}</p>}
+      {!loading && !error && (
+        <WardrobeList
+          items={items}
+          onWear={handleWear}
+          onFavorite={handleFavorite}
+          onDelete={handleDelete}
+        />
+      )}
+
+      <div className="footer-note">
+        REACT · NODE.JS · EXPRESS · MYSQL — served from the same Express app on port 5000
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
